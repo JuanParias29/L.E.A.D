@@ -50,19 +50,6 @@ La metodología implementada permite:
 - Evaluar precisión predictiva e incertidumbre asociada al pronóstico.
 - Integrar la estimación de incertidumbre dentro del cálculo de stock de seguridad.
 - Implementar un MVP funcional orientado al apoyo en decisiones de inventario.
-
-Cada fase genera artefactos reutilizables que alimentan la siguiente etapa, garantizando trazabilidad, modularidad y reproducibilidad del pipeline completo.
-
-| # | Fase | Carpeta | Inputs | Outputs |
-|---|------|---------|--------|---------|
-| 1 | Entendimiento y exploración de datos | `01_entendimiento_datos/` | Datos históricos | Dataset analizado + reporte EDA |
-| 2 | Preprocesamiento de datos | `02_preprocesamiento_datos/` | Datos crudos | Datos limpios y transformados |
-| 3 | Exploración y entrenamiento de modelos | `03_modelado/` | Series temporales | Modelos candidatos + métricas |
-| 4 | Selección y ajuste de modelos | `04_seleccion_ajuste/` | Modelos candidatos | Modelo final serializado |
-| 5 | Cálculo de stock de seguridad | `05_stock_seguridad/` | Forecasts + incertidumbre | Stock recomendado |
-| 6 | Evaluación y validación | `06_evaluacion_real/` | Modelo final | Backtesting + métricas |
-| 7 | MVP Streamlit | `07_app/` | Modelo entrenado | Aplicación interactiva |
-
 ---
 
 # Estructura del Proyecto
@@ -70,55 +57,55 @@ Cada fase genera artefactos reutilizables que alimentan la siguiente etapa, gara
 ```text
 LEAD/
 │
-├── 01_entendimiento_datos/
-│   ├── eda_general.ipynb
-│   ├── analisis_series_temporales.ipynb
-│   ├── data/
-│   │   ├── raw/
-│   │   └── interim/
-│   └── reports/
-│       └── eda_summary.html
-│
-├── 02_procesamiento_datos/
-│   ├── limpieza.ipynb
-│   ├── transformaciones.ipynb
+├── data/
+│   ├── sample/
+│   │   └── demanda_demo.csv
+│   │
+│   ├── processed/
+│   │   └── series_modelado.csv
+│   │
 │   └── outputs/
-│       └── dataset_clean.csv
-│
-├── 03_modelado/
-│   ├── exploracion_modelos.ipynb
-│   ├── evaluacion_comparativa.ipynb
-│   ├── src/
-│   │   ├── train.py
-│   │   ├── evaluate.py
-│   │   └── utils_metricas.py
-│   └── outputs/
-│       ├── metricas/
-│       └── modelos_candidatos.csv
-│
-├── 04_seleccion_ajuste/
-│   ├── seleccion_modelo.ipynb
-│   ├── hyperparameter_tuning.ipynb
-│   ├── src/
-│   │   └── tuning.py
-│   └── models/
-│       └── modelo_final.pkl
-│
-├── 05_stock_seguridad/
-│   ├── calculo_stock.ipynb
-│   ├── analisis_incertidumbre.ipynb
-│   ├── src/
-│   │   └── stock_utils.py
-│   └── outputs/
+│       ├── forecasts.csv
 │       └── stock_seguridad.csv
 │
-├── 06_evaluacion_real/
-│   ├── backtest.ipynb
-│   ├── evaluacion_operacional.ipynb
-│   └── outputs/
-│       └── metricas_reales/
+├── notebooks/
+│   │
+│   ├── 01_eda_general.ipynb
+│   ├── 02_preprocesamiento.ipynb
+│   ├── 03_seleccion_series.ipynb
+│   ├── 04_analisis_demanda.ipynb
+│   ├── 05_modelado.ipynb
+│   ├── 06_stock_seguridad.ipynb
+│   └── 07_validacion.ipynb
 │
-├── 07_app/
+├── src/
+│   │
+│   ├── forecasting/
+│   │   ├── train.py
+│   │   ├── predict.py
+│   │   └── evaluate.py
+│   │
+│   ├── inventory/
+│   │   ├── uncertainty.py
+│   │   └── stock_safety.py
+│   │
+│   ├── visualization/
+│   │   └── plots.py
+│   │
+│   └── utils/
+│       ├── metrics.py
+│       └── helpers.py
+│
+├── models/
+│   ├── candidatos/
+│   └── modelo_final.pkl
+│
+├── reports/
+│   ├── eda/
+│   ├── metricas/
+│   └── figuras/
+│
+├── app/
 │   ├── app.py
 │   ├── pages/
 │   ├── components/
@@ -128,38 +115,15 @@ LEAD/
 │   ├── Dockerfile
 │   └── docker-compose.yml
 │
+├── docs/
+│   ├── metodologia.md
+│   └── arquitectura.md
+│
 ├── requirements.txt
 ├── README.md
-├── .gitignore
-└── LICENSE
+├── LICENSE
+└── .gitignore
 ```
-
----
-
-# Flujo General del Pipeline
-
-```text
-Datos históricos
-        ↓
-Exploración y análisis
-        ↓
-Preprocesamiento
-        ↓
-Entrenamiento de modelos
-        ↓
-Evaluación comparativa
-        ↓
-Selección y tuning
-        ↓
-Forecasting de demanda
-        ↓
-Estimación de incertidumbre
-        ↓
-Cálculo de stock de seguridad
-        ↓
-Aplicación Streamlit
-```
-
 ---
 
 # Instalación y Ejecución con Docker
