@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.git/
+.env
+.vscode/
+.idea/
+notebooks/
+outputs/
+*.md
+.pytest_cache/
+.DS_Store
