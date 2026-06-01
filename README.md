@@ -1,5 +1,5 @@
 # L.E.A.D.
-## Logiser Evaluation of Analytics & Demand
+## Logistica Evaluation of Analytics & Demand
 
 Herramienta basada en técnicas de series de tiempo y aprendizaje automático para el pronóstico de la demanda y la estimación de su incertidumbre, orientada al cálculo del stock de seguridad para la gestión de inventarios. La metodología implementada documenta un pipeline técnico, reproducible y modular que abarca desde el análisis exploratorio de datos hasta el despliegue de un MVP funcional en Streamlit.
 
