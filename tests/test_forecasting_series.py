@@ -6,7 +6,10 @@ import unittest
 
 import pandas as pd
 
-from src.lead.forecasting.series import prepare_product_weekly_series
+from src.lead.forecasting.series import (
+    prepare_forecasting_split,
+    prepare_product_weekly_series,
+)
 
 
 class ForecastingSeriesTests(unittest.TestCase):
@@ -57,6 +60,39 @@ class ForecastingSeriesTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "Solo tiene"):
             prepare_product_weekly_series(product, stockouts)
+
+    def test_splits_by_cutoff_and_drops_constant_event_features(self) -> None:
+        index = pd.date_range("2024-01-01", periods=50, freq="W-MON")
+        weekly = pd.DataFrame(
+            {
+                "demanda_real": range(50),
+                "Evento_Feria": [0] * 20 + [1] * 10 + [0] * 20,
+                "Evento_Constante": [0] * 50,
+            },
+            index=index,
+        )
+
+        result = prepare_forecasting_split(
+            weekly,
+            index[41],
+            minimum_train=40,
+            minimum_test=8,
+        )
+
+        self.assertEqual(len(result.train), 42)
+        self.assertEqual(len(result.test), 8)
+        self.assertEqual(result.feature_columns, ("Evento_Feria",))
+        self.assertEqual(result.X_train.columns.tolist(), ["Evento_Feria"])
+        self.assertEqual(result.y_test.iloc[0], 42.0)
+
+    def test_rejects_missing_target_column(self) -> None:
+        weekly = pd.DataFrame(
+            {"Evento_Feria": [0, 1]},
+            index=pd.date_range("2024-01-01", periods=2, freq="W-MON"),
+        )
+
+        with self.assertRaisesRegex(ValueError, "columna objetivo"):
+            prepare_forecasting_split(weekly, weekly.index[0])
 
 
 if __name__ == "__main__":

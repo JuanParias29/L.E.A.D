@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import dataclass
 
 import pandas as pd
 
@@ -15,6 +16,19 @@ DEFAULT_EVENTS = (
     (2024, 37, "Feria"),
     (2025, 39, "Feria"),
 )
+
+
+@dataclass(frozen=True)
+class ForecastingSplit:
+    """Chronological data and event features for one product forecast."""
+
+    train: pd.DataFrame
+    test: pd.DataFrame
+    y_train: pd.Series
+    y_test: pd.Series
+    X_train: pd.DataFrame
+    X_test: pd.DataFrame
+    feature_columns: tuple[str, ...]
 
 
 def _event_dates(events: Iterable[tuple[int, int, str]]) -> list[tuple[pd.Timestamp, str]]:
@@ -102,3 +116,48 @@ def prepare_product_weekly_series(
 
     weekly["Precio_lag1"] = weekly["VlrUnitario"].shift(1)
     return weekly.dropna(subset=["Precio_lag1"])
+
+
+def prepare_forecasting_split(
+    weekly: pd.DataFrame,
+    cutoff: pd.Timestamp,
+    *,
+    target_column: str = "demanda_real",
+    feature_prefix: str = "Evento_",
+    minimum_train: int = 40,
+    minimum_test: int = 8,
+) -> ForecastingSplit:
+    """Split a weekly product frame and select variable event features."""
+
+    if target_column not in weekly.columns:
+        raise ValueError(f"Falta la columna objetivo: {target_column}")
+    if not isinstance(weekly.index, pd.DatetimeIndex):
+        raise TypeError("La serie semanal debe tener un DatetimeIndex")
+
+    data = weekly.sort_index().copy()
+    cutoff = pd.Timestamp(cutoff)
+    train = data.loc[data.index <= cutoff]
+    test = data.loc[data.index > cutoff]
+    if len(train) < minimum_train or len(test) < minimum_test:
+        raise ValueError(
+            "No tiene suficientes datos de entrenamiento o prueba "
+            f"({len(train)} y {len(test)})"
+        )
+
+    feature_columns = tuple(
+        column
+        for column in data.columns
+        if column.startswith(feature_prefix)
+        and train[column].nunique(dropna=False) > 1
+    )
+    X_train = train.loc[:, feature_columns].astype(float)
+    X_test = test.loc[:, feature_columns].astype(float)
+    return ForecastingSplit(
+        train=train,
+        test=test,
+        y_train=train[target_column].astype(float),
+        y_test=test[target_column].astype(float),
+        X_train=X_train,
+        X_test=X_test,
+        feature_columns=feature_columns,
+    )
