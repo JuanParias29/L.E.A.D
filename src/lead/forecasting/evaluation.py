@@ -33,6 +33,23 @@ def evaluate_model(
     return result
 
 
+def calculate_group_metrics(group: pd.DataFrame) -> pd.Series:
+    """Calculate aggregate forecast metrics for one product and model."""
+
+    error = group["real"] - group["prediccion"]
+    return pd.Series(
+        {
+            "MAE": np.abs(error).mean(),
+            "RMSE": np.sqrt(np.mean(error**2)),
+            "WAPE_%": np.abs(error).sum()
+            / np.abs(group["real"]).sum()
+            * 100,
+            "Sesgo": error.mean(),
+            "Demanda_total": group["real"].sum(),
+        }
+    )
+
+
 def compare_models(results: list[dict[str, object]]) -> pd.DataFrame:
     """Sort model results by RMSE and then MAE, as in the notebook."""
 

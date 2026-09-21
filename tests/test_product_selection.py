@@ -11,6 +11,7 @@ from src.lead.data.product_selection import (
     calculate_pareto,
     classify_abc_xyz,
     filter_product_origin,
+    select_ax_rows,
     select_ax_pareto,
 )
 
@@ -70,6 +71,14 @@ class ProductSelectionTests(unittest.TestCase):
         national = filter_product_origin(self.frame, imported=False)
 
         self.assertEqual(list(national["Producto"]), ["PRODUCTO OTRO"])
+
+    def test_select_ax_rows_preserves_source_columns(self) -> None:
+        selected = select_ax_rows(self.frame, imported=True)
+
+        self.assertEqual(len(selected), 3)
+        self.assertEqual(selected["Producto"].nunique(), 1)
+        self.assertTrue({"FECHA", "FlagImportado", "VentaTotal"}.issubset(selected.columns))
+        self.assertTrue({"ABC", "XYZ", "Clase", "CV"}.issubset(selected.columns))
 
     def test_calculates_brand_proportions(self) -> None:
         result = brand_proportions(

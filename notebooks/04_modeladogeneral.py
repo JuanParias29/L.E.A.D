@@ -800,7 +800,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import warnings
 
-from src.lead.forecasting.evaluation import calculate_metrics
+from src.lead.forecasting.evaluation import (
+    calculate_group_metrics,
+    calculate_metrics,
+)
 from src.lead.forecasting.experiments import (
     run_arima_experiment,
     run_sarima_experiment,
@@ -3826,33 +3829,13 @@ print(
     len(df_productos_excluidos)
 )
 
-def metricas_grupo(grupo):
-
-    error = (
-        grupo["real"] -
-        grupo["prediccion"]
-    )
-
-    return pd.Series({
-        "MAE": np.abs(error).mean(),
-        "RMSE": np.sqrt(
-            np.mean(error ** 2)
-        ),
-        "WAPE_%": (
-            np.abs(error).sum()
-            / np.abs(grupo["real"]).sum()
-        ) * 100,
-        "Sesgo": error.mean(),
-        "Demanda_total": grupo["real"].sum()
-    })
-
 metricas_por_producto = (
     df_predicciones_globales
     .groupby(
         ["IDProducto", "Producto", "modelo"]
     )
     .apply(
-        metricas_grupo,
+        calculate_group_metrics,
         include_groups=False
     )
     .reset_index()
@@ -3872,7 +3855,7 @@ metricas_globales = (
     df_predicciones_globales
     .groupby("modelo")
     .apply(
-        metricas_grupo,
+        calculate_group_metrics,
         include_groups=False
     )
     .reset_index()
