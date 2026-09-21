@@ -23,7 +23,7 @@ REQUIRED_COLUMNS = {
 }
 
 
-def _read_selection(path: Path) -> pd.DataFrame:
+def _read_selection(path: Path, *, exclude_supermastick: bool = False) -> pd.DataFrame:
     if not path.exists():
         raise FileNotFoundError(f"No existe el archivo de entrada: {path}")
 
@@ -56,10 +56,17 @@ def _read_selection(path: Path) -> pd.DataFrame:
             f"{path.name} tiene varios códigos para: {', '.join(inconsistent.index.astype(str))}"
         )
 
+    if exclude_supermastick:
+        products = products.loc[
+            ~products["Producto"].str.contains("supermastick", case=False, na=False)
+        ]
+
     dates = frame.groupby("Producto", observed=False)["FECHA"].agg(
         first_date="min", last_date="max"
     )
-    return products.merge(dates, left_on="Producto", right_index=True, how="left")
+    return products.merge(
+        dates, left_on="Producto", right_index=True, how="left"
+    ).head(20)
 
 
 def _format_product_code(value: object) -> str:
@@ -97,7 +104,7 @@ def generate_outputs(project_root: Path = PROJECT_ROOT) -> Path:
     markdown_output = output_dir / "productos_AX.md"
 
     imported = _read_selection(imported_input)
-    national = _read_selection(national_input)
+    national = _read_selection(national_input, exclude_supermastick=True)
 
     shutil.copyfile(national_input, national_output)
 
