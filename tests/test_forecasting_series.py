@@ -9,6 +9,7 @@ import pandas as pd
 from src.lead.forecasting.series import (
     prepare_forecasting_split,
     prepare_product_weekly_series,
+    standardize_lagged_price,
 )
 
 
@@ -93,6 +94,33 @@ class ForecastingSeriesTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "columna objetivo"):
             prepare_forecasting_split(weekly, weekly.index[0])
+
+    def test_standardizes_price_with_training_statistics(self) -> None:
+        index = pd.date_range("2024-01-01", periods=4, freq="W-MON")
+        weekly = pd.DataFrame(
+            {"Precio_lag1": [10.0, 20.0, 30.0, 1000.0]},
+            index=index,
+        )
+
+        result, mean, standard_deviation = standardize_lagged_price(
+            weekly,
+            index[2],
+        )
+
+        self.assertEqual(mean, 20.0)
+        self.assertAlmostEqual(standard_deviation, 10.0)
+        self.assertAlmostEqual(result.loc[index[3], "Precio_std"], 98.0)
+        self.assertNotIn("Precio_std", weekly.columns)
+
+    def test_rejects_constant_training_price(self) -> None:
+        index = pd.date_range("2024-01-01", periods=3, freq="W-MON")
+        weekly = pd.DataFrame(
+            {"Precio_lag1": [10.0, 10.0, 20.0]},
+            index=index,
+        )
+
+        with self.assertRaisesRegex(ValueError, "no cambia"):
+            standardize_lagged_price(weekly, index[1])
 
 
 if __name__ == "__main__":

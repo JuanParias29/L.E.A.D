@@ -161,3 +161,28 @@ def prepare_forecasting_split(
         X_test=X_test,
         feature_columns=feature_columns,
     )
+
+
+def standardize_lagged_price(
+    weekly: pd.DataFrame,
+    cutoff: pd.Timestamp,
+    *,
+    input_column: str = "Precio_lag1",
+    output_column: str = "Precio_std",
+) -> tuple[pd.DataFrame, float, float]:
+    """Standardize lagged price using training-period statistics only."""
+
+    if input_column not in weekly.columns:
+        raise ValueError(f"Falta la columna de precio: {input_column}")
+    if not isinstance(weekly.index, pd.DatetimeIndex):
+        raise TypeError("La serie semanal debe tener un DatetimeIndex")
+
+    data = weekly.sort_index().copy()
+    training = data.loc[data.index <= pd.Timestamp(cutoff), input_column]
+    mean = float(training.mean())
+    standard_deviation = float(training.std())
+    if pd.isna(standard_deviation) or standard_deviation <= 0:
+        raise ValueError("El precio no cambia durante el entrenamiento.")
+
+    data[output_column] = (data[input_column] - mean) / standard_deviation
+    return data, mean, standard_deviation

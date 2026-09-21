@@ -155,8 +155,9 @@ Se reemplazo `Series.append()` por `pd.concat()` y se corrigio la indexacion de 
 - Se extrajo la agregacion semanal por producto con frecuencia `W-MON`.
 - Se centralizaron `demanda_observada`, eventos comerciales, quiebres de inventario y precio rezagado.
 - Se extrajo la separacion temporal de entrenamiento y prueba con seleccion de eventos variables.
+- Se extrajo la estandarizacion del precio rezagado usando solo estadisticas de entrenamiento.
 - Se agregaron pruebas en `tests/test_forecasting_series.py`.
-- El entrenamiento, la estandarizacion del precio y la imputacion SARIMAX permanecen pendientes para unidades posteriores.
+- El entrenamiento y la imputacion SARIMAX permanecen pendientes para unidades posteriores.
 
 ### Logica conservada
 
