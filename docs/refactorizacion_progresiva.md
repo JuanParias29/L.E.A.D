@@ -146,4 +146,17 @@ Se reemplazo `Series.append()` por `pd.concat()` y se corrigio la indexacion de 
 
 - Definir una fuente operacional confiable para identificar quiebres.
 - Separar formalmente demanda cero, ausencia de registros y falta de inventario.
-- Continuar con la extracción de la lógica de forecasting del notebook `04_modeladogeneral.py`.
+
+## Etapa 5: preparación de series para forecasting
+
+### Cambios realizados
+
+- Se creo `src/lead/forecasting/series.py`.
+- Se extrajo la agregacion semanal por producto con frecuencia `W-MON`.
+- Se centralizaron `demanda_observada`, eventos comerciales, quiebres de inventario y precio rezagado.
+- Se agregaron pruebas en `tests/test_forecasting_series.py`.
+- El entrenamiento e imputacion SARIMAX permanecen pendientes para una unidad posterior.
+
+### Logica conservada
+
+Se mantienen la suma de `Facturado` y `BackOrder`, la interpolacion y relleno del precio, la exclusion de semanas 52 y 53 para marcar quiebres, la ventana de solapamiento de fechas y el requisito minimo de 70 semanas del notebook.
