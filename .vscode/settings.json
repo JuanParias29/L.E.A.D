@@ -1,0 +1,9 @@
+{
+    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "chat.tools.terminal.autoApprove": {
+        "/^python -c \"import ast, pathlib; ast\\.parse\\(pathlib\\.Path\\('notebooks/04_modeladogeneral\\.py'\\)\\.read_text\\(encoding='utf-8'\\)\\); print\\('notebook syntax final: OK'\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

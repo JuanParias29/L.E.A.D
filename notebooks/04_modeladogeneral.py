@@ -800,12 +800,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import warnings
 
-# Instalar pmdarima si no está instalado
-!pip install pmdarima
-
-from pmdarima import auto_arima
-from statsmodels.tsa.arima.model import ARIMA
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+from src.lead.forecasting.evaluation import calculate_metrics
+from src.lead.forecasting.experiments import (
+    run_arima_experiment,
+    run_sarima_experiment,
+)
+from src.lead.forecasting.split import split_last_months
 
 warnings.filterwarnings("ignore")
 
@@ -819,17 +819,10 @@ serie_producto = (
 )
 
 # Fecha de corte: últimos seis meses para prueba
-fecha_corte = serie_producto.index.max() - pd.DateOffset(months=6)
-
-# Primeros 18 meses aproximadamente
-serie_entrenamiento = serie_producto[
-    serie_producto.index <= fecha_corte
-]
-
-# Últimos seis meses
-serie_prueba = serie_producto[
-    serie_producto.index > fecha_corte
-]
+serie_entrenamiento, serie_prueba, fecha_corte = split_last_months(
+    serie_producto,
+    months=6,
+)
 
 print("Inicio del entrenamiento:", serie_entrenamiento.index.min())
 print("Final del entrenamiento:", serie_entrenamiento.index.max())
@@ -841,127 +834,28 @@ print("Semanas de prueba:", len(serie_prueba))
 
 """#### Definición de Métricas"""
 
-def calcular_metricas(real, prediccion):
-
-    mae = mean_absolute_error(real, prediccion)
-
-    rmse = np.sqrt(
-        mean_squared_error(real, prediccion)
-    )
-
-    wape = (
-        np.sum(np.abs(real - prediccion)) /
-        np.sum(np.abs(real))
-    ) * 100
-
-    return mae, rmse, wape
+calcular_metricas = lambda real, prediccion: tuple(
+    calculate_metrics(real, prediccion).values()
+)
 
 """#### Modelo ARIMA AUTOMATICO"""
 
-resultados = []
-
-modelo_automatico = auto_arima(
+experimento_arima = run_arima_experiment(
     serie_entrenamiento,
-    start_p=0,
-    start_q=0,
-    max_p=5,
-    max_q=5,
-    max_d=2,
-    seasonal=False,
-    stepwise=True,
-    information_criterion="aic",
-    suppress_warnings=True,
-    error_action="ignore",
-    trace=True
-)
-
-# Orden seleccionado automáticamente
-orden_automatico = modelo_automatico.order
-
-# Pronóstico sobre los seis meses de prueba
-prediccion_automatica = pd.Series(
-    modelo_automatico.predict(
-        n_periods=len(serie_prueba)
-    ),
-    index=serie_prueba.index
-)
-
-# No permitir predicciones negativas
-prediccion_automatica = prediccion_automatica.clip(lower=0)
-
-# Calcular métricas
-mae, rmse, wape = calcular_metricas(
     serie_prueba,
-    prediccion_automatica
 )
-
-resultados.append({
-    "modelo": "Auto ARIMA",
-    "orden": str(orden_automatico),
-    "p": orden_automatico[0],
-    "d": orden_automatico[1],
-    "q": orden_automatico[2],
-    "MAE": mae,
-    "RMSE": rmse,
-    "WAPE_%": wape,
-    "AIC": modelo_automatico.aic()
-})
+resultados = experimento_arima["results"].to_dict(orient="records")
+predicciones = experimento_arima["predictions"]
+modelos_arima = experimento_arima["models"]
+modelo_automatico = modelos_arima["Auto ARIMA"]
+orden_automatico = modelo_automatico.order
+prediccion_automatica = predicciones["Auto ARIMA"]
 
 print("Orden seleccionado:", orden_automatico)
 
 """#### Modelo ARIMA Manual"""
 
-# Diferenciación seleccionada automáticamente
-d_seleccionado = orden_automatico[1]
-
-predicciones = {
-    "Auto ARIMA": prediccion_automatica
-}
-
-# Probar todas las combinaciones de p y q
-for p in range(3):
-    for q in range(3):
-
-        orden = (p, d_seleccionado, q)
-
-        try:
-            modelo = ARIMA(
-                serie_entrenamiento,
-                order=orden
-            ).fit()
-
-            prediccion = modelo.forecast(
-                steps=len(serie_prueba)
-            )
-
-            prediccion.index = serie_prueba.index
-            prediccion = prediccion.clip(lower=0)
-
-            mae, rmse, wape = calcular_metricas(
-                serie_prueba,
-                prediccion
-            )
-
-            nombre_modelo = f"ARIMA{orden}"
-
-            resultados.append({
-                "modelo": nombre_modelo,
-                "orden": str(orden),
-                "p": p,
-                "d": d_seleccionado,
-                "q": q,
-                "MAE": mae,
-                "RMSE": rmse,
-                "WAPE_%": wape,
-                "AIC": modelo.aic
-            })
-
-            predicciones[nombre_modelo] = prediccion
-
-        except Exception as error:
-            print(
-                f"No se pudo ajustar ARIMA{orden}: {error}"
-            )
+# El ajuste automático y la grilla manual se ejecutan en el módulo reutilizable.
 
 """#### "Mejor Modelo"
 """
@@ -1070,107 +964,19 @@ from statsmodels.graphics.gofplots import qqplot
 
 """#### Modelo SARIMAX (Estacionalidad)"""
 
-from pmdarima import auto_arima
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.metrics import mean_absolute_error, mean_squared_error
-
-def calcular_metricas(real, prediccion):
-
-    mae = mean_absolute_error(real, prediccion)
-
-    rmse = np.sqrt(
-        mean_squared_error(real, prediccion)
-    )
-
-    wape = (
-        np.sum(np.abs(real - prediccion)) /
-        np.sum(np.abs(real))
-    ) * 100
-
-    return mae, rmse, wape
-
 """### Entrenar SARIMA para ciclos de 3, 4 y 7 semanas (Análisis Expectral)"""
 
 # Periodos identificados en el análisis espectral
 periodos_estacionales = [3, 4, 7]
 
-resultados_sarima = []
-modelos_sarima = {}
-predicciones_sarima = {}
-
-for periodo in periodos_estacionales:
-
-    print(f"\nEntrenando SARIMA con periodo estacional m={periodo}")
-
-    try:
-        modelo_sarima = auto_arima(
-            serie_entrenamiento,
-
-            # Componente no estacional
-            start_p=0,
-            start_q=0,
-            max_p=2,
-            max_q=2,
-            max_d=2,
-
-            # Componente estacional
-            seasonal=True,
-            m=periodo,
-            start_P=0,
-            start_Q=0,
-            max_P=1,
-            max_Q=1,
-            max_D=1,
-
-            information_criterion="aic",
-            stepwise=True,
-            suppress_warnings=True,
-            error_action="ignore",
-            trace=False
-        )
-
-        # Pronóstico de los últimos seis meses
-        prediccion = pd.Series(
-            modelo_sarima.predict(
-                n_periods=len(serie_prueba)
-            ),
-            index=serie_prueba.index
-        )
-
-        # Evitar cantidades negativas
-        prediccion = prediccion.clip(lower=0)
-
-        # Calcular métricas
-        mae, rmse, wape = calcular_metricas(
-            serie_prueba,
-            prediccion
-        )
-
-        nombre = f"SARIMA m={periodo}"
-
-        resultados_sarima.append({
-            "modelo": nombre,
-            "orden": str(modelo_sarima.order),
-            "orden_estacional": str(
-                modelo_sarima.seasonal_order
-            ),
-            "periodo": periodo,
-            "MAE": mae,
-            "RMSE": rmse,
-            "WAPE_%": wape,
-            "AIC": modelo_sarima.aic()
-        })
-
-        modelos_sarima[nombre] = modelo_sarima
-        predicciones_sarima[nombre] = prediccion
-
-    except Exception as error:
-        print(
-            f"No se pudo entrenar el modelo "
-            f"con periodo {periodo}: {error}"
-        )
+experimento_sarima = run_sarima_experiment(
+    serie_entrenamiento,
+    serie_prueba,
+    seasonal_periods=tuple(periodos_estacionales),
+)
+resultados_sarima = experimento_sarima["results"].to_dict(orient="records")
+modelos_sarima = experimento_sarima["models"]
+predicciones_sarima = experimento_sarima["predictions"]
 
 tabla_sarima = (
     pd.DataFrame(resultados_sarima)
@@ -2175,6 +1981,13 @@ print(f"Cantidad de registros: {len(df_modelo_demanda)}")
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
+from models.sarimax.model import (
+    fit as fit_sarimax,
+    forecast as forecast_sarimax,
+)
+from src.lead.forecasting.evaluation import evaluate_model
+from src.lead.preprocessing.stockouts import impute_stockout_demand
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -2315,7 +2128,7 @@ X_test_con_precio = datos_prueba[
     variables_con_precio
 ].astype(float)
 
-modelo_sin_precio = SARIMAX(
+modelo_sin_precio = fit_sarimax(
     y_train,
     exog=X_train_sin_precio,
     order=(0, 0, 1),
@@ -2323,22 +2136,16 @@ modelo_sin_precio = SARIMAX(
     trend="c",
     enforce_stationarity=False,
     enforce_invertibility=False
-).fit(disp=False)
-
-pronostico_sin_precio = modelo_sin_precio.get_forecast(
-    steps=len(y_test),
-    exog=X_test_sin_precio
 )
 
-prediccion_sin_precio = (
-    pronostico_sin_precio
-    .predicted_mean
-    .clip(lower=0)
+prediccion_sin_precio = forecast_sarimax(
+    modelo_sin_precio,
+    len(y_test),
+    exog=X_test_sin_precio,
+    index=y_test.index,
 )
 
-prediccion_sin_precio.index = y_test.index
-
-modelo_con_precio = SARIMAX(
+modelo_con_precio = fit_sarimax(
     y_train,
     exog=X_train_con_precio,
     order=(0, 0, 1),
@@ -2346,20 +2153,14 @@ modelo_con_precio = SARIMAX(
     trend="c",
     enforce_stationarity=False,
     enforce_invertibility=False
-).fit(disp=False)
-
-pronostico_con_precio = modelo_con_precio.get_forecast(
-    steps=len(y_test),
-    exog=X_test_con_precio
 )
 
-prediccion_con_precio = (
-    pronostico_con_precio
-    .predicted_mean
-    .clip(lower=0)
+prediccion_con_precio = forecast_sarimax(
+    modelo_con_precio,
+    len(y_test),
+    exog=X_test_con_precio,
+    index=y_test.index,
 )
-
-prediccion_con_precio.index = y_test.index
 
 def evaluar_sarimax(
     nombre,
@@ -2367,33 +2168,7 @@ def evaluar_sarimax(
     prediccion,
     modelo
 ):
-    mae = mean_absolute_error(
-        real,
-        prediccion
-    )
-
-    rmse = np.sqrt(
-        mean_squared_error(
-            real,
-            prediccion
-        )
-    )
-
-    wape = (
-        np.sum(
-            np.abs(real - prediccion)
-        )
-        /
-        np.sum(np.abs(real))
-    ) * 100
-
-    return {
-        "modelo": nombre,
-        "MAE": mae,
-        "RMSE": rmse,
-        "WAPE_%": wape,
-        "AIC": modelo.aic
-    }
+    return evaluate_model(nombre, real, prediccion, modelo)
 
 resultados = [
     evaluar_sarimax(
@@ -2656,31 +2431,22 @@ X_test_con_quiebre = datos_prueba[
 print("Variables utilizadas:")
 print(variables_con_quiebre)
 
-modelo_con_quiebre = SARIMAX(
+modelo_con_quiebre = fit_sarimax(
     y_train,
     exog=X_train_con_quiebre,
     order=(0, 0, 1),
     seasonal_order=(0, 0, 0, 0),
     trend="c",
     enforce_stationarity=False,
-    enforce_invertibility=False
-).fit(disp=False)
-
-pronostico_con_quiebre = (
-    modelo_con_quiebre
-    .get_forecast(
-        steps=len(y_test),
-        exog=X_test_con_quiebre
-    )
+    enforce_invertibility=False,
 )
 
-prediccion_con_quiebre = (
-    pronostico_con_quiebre
-    .predicted_mean
-    .clip(lower=0)
+prediccion_con_quiebre = forecast_sarimax(
+    modelo_con_quiebre,
+    len(y_test),
+    exog=X_test_con_quiebre,
+    index=y_test.index,
 )
-
-prediccion_con_quiebre.index = y_test.index
 
 resultado_con_quiebre = evaluar_sarimax(
     "SARIMAX con quiebres",
@@ -3018,44 +2784,17 @@ y_sin_quiebres.loc[
     mascara_quiebre
 ] = np.nan
 
-# Ajustar el modelo ignorando las semanas censuradas
-modelo_imputacion = SARIMAX(
-    y_sin_quiebres,
+# Ajustar el modelo ignorando las semanas censuradas y suavizar la estimación.
+resultado_imputacion = impute_stockout_demand(
+    y_completa,
+    mascara_quiebre,
     exog=X_imputacion,
-    order=(0, 0, 1),
-    seasonal_order=(0, 0, 0, 0),
-    trend="c",
-    enforce_stationarity=False,
-    enforce_invertibility=False
-).fit(disp=False)
-
-# Estimación suavizada usando semanas anteriores y posteriores
-resultado_imputacion = (
-    modelo_imputacion
-    .get_prediction(
-        start=0,
-        end=len(y_sin_quiebres) - 1,
-        information_set="smoothed"
-    )
 )
 
-demanda_contrafactual = (
-    resultado_imputacion
-    .predicted_mean
-    .clip(lower=0)
-)
-
-intervalos = resultado_imputacion.conf_int()
-
-limite_inferior = (
-    intervalos.iloc[:, 0]
-    .clip(lower=0)
-)
-
-limite_superior = (
-    intervalos.iloc[:, 1]
-    .clip(lower=0)
-)
+modelo_imputacion = resultado_imputacion.model
+demanda_contrafactual = resultado_imputacion.counterfactual
+limite_inferior = resultado_imputacion.lower_bound
+limite_superior = resultado_imputacion.upper_bound
 
 df_imputacion["demanda_observada_original"] = (
     y_completa
@@ -3372,78 +3111,42 @@ X_test_con_precio = datos_test[
     variables_con_precio
 ].astype(float)
 
-sarimax_sin_precio = SARIMAX(
+sarimax_sin_precio = fit_sarimax(
     y_train,
     exog=X_train_sin_precio,
     order=(0, 0, 1),
     seasonal_order=(0, 0, 0, 0),
     trend="c",
     enforce_stationarity=False,
-    enforce_invertibility=False
-).fit(disp=False)
-
-pronostico_sin_precio = (
-    sarimax_sin_precio
-    .get_forecast(
-        steps=len(y_test),
-        exog=X_test_sin_precio
-    )
+    enforce_invertibility=False,
 )
 
-pred_sin_precio = (
-    pronostico_sin_precio
-    .predicted_mean
-    .clip(lower=0)
+pred_sin_precio = forecast_sarimax(
+    sarimax_sin_precio,
+    len(y_test),
+    exog=X_test_sin_precio,
+    index=y_test.index,
 )
 
-pred_sin_precio.index = y_test.index
-
-sarimax_con_precio = SARIMAX(
+sarimax_con_precio = fit_sarimax(
     y_train,
     exog=X_train_con_precio,
     order=(0, 0, 1),
     seasonal_order=(0, 0, 0, 0),
     trend="c",
     enforce_stationarity=False,
-    enforce_invertibility=False
-).fit(disp=False)
-
-pronostico_con_precio = (
-    sarimax_con_precio
-    .get_forecast(
-        steps=len(y_test),
-        exog=X_test_con_precio
-    )
+    enforce_invertibility=False,
 )
 
-pred_con_precio = (
-    pronostico_con_precio
-    .predicted_mean
-    .clip(lower=0)
+pred_con_precio = forecast_sarimax(
+    sarimax_con_precio,
+    len(y_test),
+    exog=X_test_con_precio,
+    index=y_test.index,
 )
-
-pred_con_precio.index = y_test.index
 
 def evaluar_modelo(nombre, real, prediccion, modelo):
-
-    mae = mean_absolute_error(real, prediccion)
-
-    rmse = np.sqrt(
-        mean_squared_error(real, prediccion)
-    )
-
-    wape = (
-        np.abs(real - prediccion).sum()
-        / np.abs(real).sum()
-    ) * 100
-
-    return {
-        "modelo": nombre,
-        "MAE": mae,
-        "RMSE": rmse,
-        "WAPE_%": wape,
-        "AIC": modelo.aic
-    }
+    return evaluate_model(nombre, real, prediccion, modelo)
 
 tabla_resultados_nuevos = pd.DataFrame([
     evaluar_modelo(
@@ -3880,9 +3583,6 @@ def procesar_producto(
         semanal["Evento_QuiebreInventario"] == 1
     )
 
-    y_para_imputar = y_observada.copy()
-    y_para_imputar.loc[mascara_quiebre] = np.nan
-
     # Eliminar eventos constantes
     eventos_imputacion = [
         columna
@@ -3896,26 +3596,12 @@ def procesar_producto(
         else None
     )
 
-    modelo_imputacion = SARIMAX(
-        y_para_imputar,
+    resultado_imputacion = impute_stockout_demand(
+        y_observada,
+        mascara_quiebre,
         exog=X_imputacion,
-        order=(0, 0, 1),
-        seasonal_order=(0, 0, 0, 0),
-        trend="c",
-        enforce_stationarity=False,
-        enforce_invertibility=False
-    ).fit(disp=False)
-
-    demanda_contrafactual = (
-        modelo_imputacion
-        .get_prediction(
-            start=0,
-            end=len(semanal) - 1,
-            information_set="smoothed"
-        )
-        .predicted_mean
-        .clip(lower=0)
     )
+    demanda_contrafactual = resultado_imputacion.counterfactual
 
     # Mantener al menos la demanda observada
     semanal["demanda_real"] = y_observada
@@ -3987,27 +3673,22 @@ def procesar_producto(
     # Modelo sin precio
     # --------------------------------------------------
 
-    modelo_sin_precio = SARIMAX(
+    modelo_sin_precio = fit_sarimax(
         y_train,
         exog=X_train_base,
         order=(0, 0, 1),
         seasonal_order=(0, 0, 0, 0),
         trend="c",
         enforce_stationarity=False,
-        enforce_invertibility=False
-    ).fit(disp=False)
-
-    pred_sin_precio = (
-        modelo_sin_precio
-        .get_forecast(
-            steps=len(y_test),
-            exog=X_test_base
-        )
-        .predicted_mean
-        .clip(lower=0)
+        enforce_invertibility=False,
     )
 
-    pred_sin_precio.index = y_test.index
+    pred_sin_precio = forecast_sarimax(
+        modelo_sin_precio,
+        len(y_test),
+        exog=X_test_base,
+        index=y_test.index,
+    )
 
     modelos.append({
         "modelo": "SARIMAX sin precio",
@@ -4049,27 +3730,22 @@ def procesar_producto(
             variables_precio
         ].astype(float)
 
-        modelo_con_precio = SARIMAX(
+        modelo_con_precio = fit_sarimax(
             y_train,
             exog=X_train_precio,
             order=(0, 0, 1),
             seasonal_order=(0, 0, 0, 0),
             trend="c",
             enforce_stationarity=False,
-            enforce_invertibility=False
-        ).fit(disp=False)
-
-        pred_con_precio = (
-            modelo_con_precio
-            .get_forecast(
-                steps=len(y_test),
-                exog=X_test_precio
-            )
-            .predicted_mean
-            .clip(lower=0)
+            enforce_invertibility=False,
         )
 
-        pred_con_precio.index = y_test.index
+        pred_con_precio = forecast_sarimax(
+            modelo_con_precio,
+            len(y_test),
+            exog=X_test_precio,
+            index=y_test.index,
+        )
 
         modelos.append({
             "modelo": "SARIMAX con precio",

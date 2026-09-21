@@ -9,6 +9,10 @@ statsforecast>=1.4.0
 sktime>=0.13.0
 prophet>=1.1.0
 scikit-learn>=1.1.0
+scipy>=1.10.0
+statsmodels>=0.14.0
+pmdarima>=2.0.0
+tqdm>=4.60.0
 
 # App
 streamlit>=1.20.0
