@@ -156,8 +156,9 @@ Se reemplazo `Series.append()` por `pd.concat()` y se corrigio la indexacion de 
 - Se centralizaron `demanda_observada`, eventos comerciales, quiebres de inventario y precio rezagado.
 - Se extrajo la separacion temporal de entrenamiento y prueba con seleccion de eventos variables.
 - Se extrajo la estandarizacion del precio rezagado usando solo estadisticas de entrenamiento.
+- Se extrajo la comparacion de variantes SARIMAX con y sin precio.
 - Se agregaron pruebas en `tests/test_forecasting_series.py`.
-- El entrenamiento y la imputacion SARIMAX permanecen pendientes para unidades posteriores.
+- La ejecucion por producto y la imputacion SARIMAX permanecen pendientes para unidades posteriores.
 
 ### Logica conservada
 

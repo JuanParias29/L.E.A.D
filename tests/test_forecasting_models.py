@@ -17,6 +17,7 @@ from models.sarimax.model import fit as fit_sarimax
 from models.sarimax.model import forecast as forecast_sarimax
 from models.sarimax.model import forecast_with_intervals
 from src.lead.forecasting.evaluation import calculate_metrics, compare_models
+from src.lead.forecasting.experiments import run_sarimax_experiment
 from src.lead.forecasting.split import split_last_months
 from src.lead.preprocessing.stockouts import impute_stockout_demand
 
@@ -139,6 +140,41 @@ class ForecastingModelEquivalenceTests(unittest.TestCase):
         self.assertEqual(result.method.iloc[10], "Contrafactual restringido")
         self.assertEqual(len(result.counterfactual), len(observed))
         self.assertTrue((result.imputed >= 0).all())
+
+    def test_sarimax_experiment_compares_base_and_price_variants(self) -> None:
+        exog = pd.DataFrame(
+            {"evento": (np.arange(40) % 5 == 0).astype(float)},
+            index=self.series.index,
+        )
+        result = run_sarimax_experiment(
+            self.series.iloc[:34],
+            self.series.iloc[34:],
+            base_train_exog=exog.iloc[:34],
+            base_test_exog=exog.iloc[34:],
+            price_train_exog=pd.DataFrame(
+                {
+                    "evento": exog.iloc[:, 0],
+                    "Precio_std": np.linspace(-1, 1, 40),
+                },
+                index=self.series.index,
+            ).iloc[:34],
+            price_test_exog=pd.DataFrame(
+                {
+                    "evento": exog.iloc[:, 0],
+                    "Precio_std": np.linspace(-1, 1, 40),
+                },
+                index=self.series.index,
+            ).iloc[34:],
+        )
+
+        self.assertEqual(
+            set(result["predictions"]),
+            {"SARIMAX sin precio", "SARIMAX con precio"},
+        )
+        self.assertEqual(len(result["results"]), 2)
+        self.assertTrue(
+            all(len(prediction) == 6 for prediction in result["predictions"].values())
+        )
 
     def test_split_and_metrics_preserve_notebook_contract(self) -> None:
         train, test, cutoff = split_last_months(self.series, months=6)
