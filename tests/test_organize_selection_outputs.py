@@ -17,13 +17,54 @@ class OrganizeSelectionOutputsTests(unittest.TestCase):
             root = Path(directory)
             output_dir = root / "data" / "outputs"
             output_dir.mkdir(parents=True)
+            rows = []
+            for product_number in range(20):
+                rows.extend(
+                    [
+                        {
+                            "FECHA": "2025-02-02",
+                            "IDProducto": product_number,
+                            "Producto": f"Producto {product_number}",
+                            "PctVenta": 20 - product_number,
+                            "PctAcum": 20 - product_number,
+                        },
+                        {
+                            "FECHA": "2024-01-01",
+                            "IDProducto": product_number,
+                            "Producto": f"Producto {product_number}",
+                            "PctVenta": 20 - product_number,
+                            "PctAcum": 20 - product_number,
+                        },
+                    ]
+                )
+            frame = pd.DataFrame(rows)
+            frame.to_csv(output_dir / "productos_importados_AX.csv", sep=";", index=False)
+            frame.to_csv(output_dir / "productos_no_importados_AX.csv", sep=";", index=False)
+
+            markdown_path = generate_outputs(root)
+            markdown = markdown_path.read_text(encoding="utf-8")
+            self.assertIn(
+                "| 1 | 19 | Producto 19 | 01/01/2024 - 02/02/2025 |", markdown
+            )
+            product_rows = [line for line in markdown.splitlines() if line.startswith("| ")]
+            self.assertEqual(len(product_rows), 42)
+            self.assertEqual(
+                (output_dir / "productos_nacionales_AX.csv").read_bytes(),
+                (output_dir / "productos_no_importados_AX.csv").read_bytes(),
+            )
+
+    def test_rejects_fewer_than_twenty_products(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output_dir = root / "data" / "outputs"
+            output_dir.mkdir(parents=True)
             frame = pd.DataFrame(
                 {
-                    "FECHA": ["2025-02-02", "2024-01-01", "2025-01-01"],
-                    "IDProducto": [2, 1, 1],
-                    "Producto": ["Segundo", "Primero", "Primero"],
-                    "PctVenta": [2.0, 5.0, 5.0],
-                    "PctAcum": [30.0, 10.0, 10.0],
+                    "FECHA": ["2025-02-02"],
+                    "IDProducto": [1],
+                    "Producto": ["Producto único"],
+                    "PctVenta": [1.0],
+                    "PctAcum": [1.0],
                 }
             )
             frame.to_csv(output_dir / "productos_importados_AX.csv", sep=";", index=False)

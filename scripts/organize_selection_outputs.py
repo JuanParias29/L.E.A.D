@@ -56,7 +56,10 @@ def _read_selection(path: Path) -> pd.DataFrame:
             f"{path.name} tiene varios códigos para: {', '.join(inconsistent.index.astype(str))}"
         )
 
-    return products.head(20)
+    dates = frame.groupby("Producto", observed=False)["FECHA"].agg(
+        first_date="min", last_date="max"
+    )
+    return products.merge(dates, left_on="Producto", right_index=True, how="left")
 
 
 def _format_product_code(value: object) -> str:
@@ -86,14 +89,6 @@ def _markdown_section(title: str, products: pd.DataFrame) -> list[str]:
     return lines
 
 
-def _report_products(selection: pd.DataFrame) -> pd.DataFrame:
-    dates = selection.groupby("Producto", observed=False)["FECHA"].agg(
-        first_date="min", last_date="max"
-    )
-    report = selection.merge(dates, left_on="Producto", right_index=True, how="left")
-    return report
-
-
 def generate_outputs(project_root: Path = PROJECT_ROOT) -> Path:
     output_dir = project_root / "data" / "outputs"
     imported_input = output_dir / "productos_importados_AX.csv"
@@ -101,8 +96,8 @@ def generate_outputs(project_root: Path = PROJECT_ROOT) -> Path:
     national_output = output_dir / "productos_nacionales_AX.csv"
     markdown_output = output_dir / "productos_AX.md"
 
-    imported = _report_products(_read_selection(imported_input))
-    national = _report_products(_read_selection(national_input))
+    imported = _read_selection(imported_input)
+    national = _read_selection(national_input)
 
     shutil.copyfile(national_input, national_output)
 
