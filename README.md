@@ -71,8 +71,8 @@ LEAD/
 ├── notebooks/
 │   │
 │   ├── 01_eda_general.ipynb
-│   ├── 02_preprocesamiento.ipynb
-│   ├── 03_seleccion_series.ipynb
+│   ├── 02_seleccion_productos.ipynb
+│   ├── 03_preprocesamiento.ipynb
 │   ├── 04_analisis_demanda.ipynb
 │   ├── 05_modelado.ipynb
 │   ├── 06_stock_seguridad.ipynb
