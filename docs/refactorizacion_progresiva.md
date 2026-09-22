@@ -186,7 +186,7 @@ Las fuentes de ventas llegaron como `Dataset_Nacionales.csv` y `Dataset_Importad
 
 La identificación de producto utiliza `IDProducto`. El origen se conserva en `tipo_producto`, con valores `nacional` e `importado`. La clave temporal de integración es el producto y la fecha de transacción; el stockout se marca cuando `FECHA` cae dentro de `[FechaInicial, FechaFinal]`.
 
-La información de ventas es transaccional y contiene `Semana`, pero el número de semana aislado no identifica un período entre años. Para una futura serie semanal deberá definirse una convención que derive el período desde `FECHA`.
+La información de ventas es transaccional y contiene `Semana`, pero el número de semana original se conserva sin usarlo como clave única. La convención definitiva deriva el período desde `FECHA`: lunes a domingo, con `semana_inicio` como fecha clave, `semana_fin` como límite inclusivo y `semana_calendario` en formato `AAAA-W##`.
 
 ### Implementación
 
@@ -200,9 +200,10 @@ La información de ventas es transaccional y contiene `Semana`, pero el número 
 - Propósito: dataset local consolidado para la preparación posterior del modelado.
 - Origen: datasets nacionales/importados, selecciones AX y stockouts.
 - Método: concatenación de ventas, filtrado por `IDProducto`, adición de `tipo_producto` y marcado por solapamiento de fechas.
-- Estructura: 116.922 registros y 24 columnas.
+- Estructura: 116.922 registros y 27 columnas.
 - Productos representados: 20 nacionales y 20 importados, 40 totales.
 - Período: 2026-01-01 a 2026-09-22.
+- Nombre definitivo: `dataset_ax` (`data/processed/dataset_ax.csv`).
 
 ### Stockouts
 
@@ -211,7 +212,7 @@ Se marcaron 2.750 registros de ventas y 40 productos tienen al menos un registro
 ### Verificación
 
 - No hay productos adicionales fuera del universo AX.
-- Faltan 10 productos AX nacionales en las ventas recibidas: `64`, `230`, `1585`, `3971`, `5425`, `6340`, `7027`, `7118`, `7119` y `7162`.
+- Se excluyeron del universo final los 10 productos AX nacionales sin registros en la fuente recibida: `64`, `230`, `1585`, `3971`, `5425`, `6340`, `7027`, `7118`, `7119` y `7162`. No se generaron filas artificiales.
 - No hay duplicados completos ni duplicados por `tipo_producto`, `FECHA`, `IDFactura`, `IDProducto`.
 - No hay registros sin `IDProducto` ni sin `FECHA`.
 - Las columnas `Facturado` y `BackOrder` se conservaron; no se corrigieron ni imputaron.
@@ -221,9 +222,10 @@ Se marcaron 2.750 registros de ventas y 40 productos tienen al menos un registro
 
 Se actualizaron las reglas de `.gitignore` para los nombres solicitados y los nombres reales recibidos, además de `data/processed/dataset_ax.csv`. Los datasets privados permanecen locales y no se hizo commit.
 
-- **[REQUIERE DECISIÓN METODOLÓGICA]** Confirmar si la ausencia de los 10 productos nacionales AX se debe a una ventana temporal incompleta o a una fuente incorrecta.
-- **[REQUIERE DECISIÓN METODOLÓGICA]** Confirmar la convención semanal definitiva y el nombre final entre `dataset_ax.csv` y `dataset_ax_modelado.csv`.
-- **[REQUIERE VALIDACIÓN CON EL NEGOCIO]** Confirmar que el solapamiento de fechas de stockout con las fechas transaccionales sea la definición operacional esperada.
+- La exclusión de los 10 productos nacionales sin ventas fue aprobada para esta etapa.
+- La convención semanal lunes-domingo basada en `FECHA` fue aprobada.
+- El nombre final aprobado es `dataset_ax`.
+- El solapamiento inclusivo de fechas para stockouts fue validado por negocio.
 
 ### Estado
 

@@ -41,6 +41,9 @@ class DatasetAxTests(unittest.TestCase):
             self.assertEqual(set(result["tipo_producto"]), {"nacional", "importado"})
             self.assertEqual(result["stockout"].sum(), 1)
             self.assertEqual(result["IDProducto"].nunique(), 2)
+            self.assertEqual(result.loc[0, "semana_inicio"], "2025-01-06")
+            self.assertEqual(result.loc[0, "semana_fin"], "2025-01-12")
+            self.assertEqual(result.loc[0, "semana_calendario"], "2025-W02")
 
 
 if __name__ == "__main__":

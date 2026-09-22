@@ -128,6 +128,24 @@ def mark_stockouts(
     return result
 
 
+def add_calendar_week(
+    frame: pd.DataFrame,
+    *,
+    date_column: str = "FECHA",
+) -> pd.DataFrame:
+    """Add Monday-to-Sunday calendar boundaries using the transaction date."""
+
+    result = frame.copy()
+    dates = pd.to_datetime(result[date_column], errors="coerce")
+    week_start = dates - pd.to_timedelta(dates.dt.weekday, unit="D")
+    result["semana_inicio"] = week_start.dt.strftime("%Y-%m-%d")
+    result["semana_fin"] = (week_start + pd.Timedelta(days=6)).dt.strftime(
+        "%Y-%m-%d"
+    )
+    result["semana_calendario"] = week_start.dt.strftime("%G-W%V")
+    return result
+
+
 def build_dataset_ax(
     national_path: str | Path,
     imported_path: str | Path,
@@ -148,4 +166,4 @@ def build_dataset_ax(
     combined["IDProducto"] = pd.to_numeric(combined["IDProducto"], errors="raise").astype(int)
     combined = combined.loc[combined["IDProducto"].isin(ax_ids)].copy()
     combined = mark_stockouts(combined, load_stockout_intervals(stockout_path))
-    return combined
+    return add_calendar_week(combined)
