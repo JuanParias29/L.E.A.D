@@ -1,4 +1,10 @@
 data/processed/Dataset_cleaned1.csv
+data/inputs/dataset_nacional.csv
+data/inputs/dataset_importados.csv
+data/inputs/Stockout_productos.csv
+data/inputs/Dataset_Nacionales.csv
+data/inputs/Dataset_Importados.csv
+data/processed/dataset_ax.csv
 data/inputs/StockoutProducts.csv
-productos_importados_AX.csv
-productos_nacionales_AX.csv
+data/outputs/productos_importados_AX.csv
+data/outputs/productos_nacionales_AX.csv

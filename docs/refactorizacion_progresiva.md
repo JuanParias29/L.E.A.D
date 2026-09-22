@@ -163,3 +163,68 @@ Se reemplazo `Series.append()` por `pd.concat()` y se corrigio la indexacion de 
 ### Logica conservada
 
 Se mantienen la suma de `Facturado` y `BackOrder`, la interpolacion y relleno del precio, la exclusion de semanas 52 y 53 para marcar quiebres, la ventana de solapamiento de fechas y el requisito minimo de 70 semanas del notebook.
+
+## Etapa 6: consolidación del dataset AX
+
+**Fecha:** 2026-09-22
+
+### Objetivo
+
+Construir un dataset local con las ventas nacionales e importadas pertenecientes al universo AX definido por las selecciones existentes, conservando las variables originales e incorporando evidencia explícita de stockouts.
+
+### Datasets de entrada
+
+- `data/inputs/Dataset_Nacionales.csv`: 68.889 registros, 20 columnas efectivas, sin encabezado. Fechas entre 2026-01-01 y 2026-09-22.
+- `data/inputs/Dataset_Importados.csv`: 48.033 registros, 20 columnas efectivas, sin encabezado. Fechas entre 2026-01-01 y 2026-09-22.
+- `data/inputs/Stockout_productos.csv`: 157.054 intervalos, con `IDProductos`, `FechaInicial` y `FechaFinal`. Fechas entre 2024-01-02 y 2026-05-12.
+- `data/outputs/productos_nacionales_AX.csv`: fuente de verdad de 30 productos AX nacionales.
+- `data/outputs/productos_importados_AX.csv`: fuente de verdad de 20 productos AX importados.
+
+Las fuentes de ventas llegaron como `Dataset_Nacionales.csv` y `Dataset_Importados.csv`, no como los nombres inicialmente propuestos en minúsculas. Se mantuvieron intactas y el script usa sus nombres reales.
+
+### Clave y combinación
+
+La identificación de producto utiliza `IDProducto`. El origen se conserva en `tipo_producto`, con valores `nacional` e `importado`. La clave temporal de integración es el producto y la fecha de transacción; el stockout se marca cuando `FECHA` cae dentro de `[FechaInicial, FechaFinal]`.
+
+La información de ventas es transaccional y contiene `Semana`, pero el número de semana aislado no identifica un período entre años. Para una futura serie semanal deberá definirse una convención que derive el período desde `FECHA`.
+
+### Implementación
+
+- `src/lead/data/dataset_ax.py`: carga fuentes con o sin encabezado, obtiene IDs AX, filtra ventas, valida intervalos y marca stockouts sin duplicar filas ni imputar demanda.
+- `scripts/build_dataset_ax.py`: ejecución reproducible desde la raíz del repositorio.
+- `tests/test_dataset_ax.py`: prueba focalizada de filtrado, origen y marcado temporal.
+
+### Artefacto generado
+
+- `data/processed/dataset_ax.csv`
+- Propósito: dataset local consolidado para la preparación posterior del modelado.
+- Origen: datasets nacionales/importados, selecciones AX y stockouts.
+- Método: concatenación de ventas, filtrado por `IDProducto`, adición de `tipo_producto` y marcado por solapamiento de fechas.
+- Estructura: 116.922 registros y 24 columnas.
+- Productos representados: 20 nacionales y 20 importados, 40 totales.
+- Período: 2026-01-01 a 2026-09-22.
+
+### Stockouts
+
+Se marcaron 2.750 registros de ventas y 40 productos tienen al menos un registro marcado. Los 411 intervalos de stockout que corresponden al universo AX se evaluaron contra las ventas disponibles. No se inventaron filas para períodos sin ventas y no se realizó imputación.
+
+### Verificación
+
+- No hay productos adicionales fuera del universo AX.
+- Faltan 10 productos AX nacionales en las ventas recibidas: `64`, `230`, `1585`, `3971`, `5425`, `6340`, `7027`, `7118`, `7119` y `7162`.
+- No hay duplicados completos ni duplicados por `tipo_producto`, `FECHA`, `IDFactura`, `IDProducto`.
+- No hay registros sin `IDProducto` ni sin `FECHA`.
+- Las columnas `Facturado` y `BackOrder` se conservaron; no se corrigieron ni imputaron.
+- El test focalizado `python -m unittest tests.test_dataset_ax -v` pasó.
+
+### Git y decisiones pendientes
+
+Se actualizaron las reglas de `.gitignore` para los nombres solicitados y los nombres reales recibidos, además de `data/processed/dataset_ax.csv`. Los datasets privados permanecen locales y no se hizo commit.
+
+- **[REQUIERE DECISIÓN METODOLÓGICA]** Confirmar si la ausencia de los 10 productos nacionales AX se debe a una ventana temporal incompleta o a una fuente incorrecta.
+- **[REQUIERE DECISIÓN METODOLÓGICA]** Confirmar la convención semanal definitiva y el nombre final entre `dataset_ax.csv` y `dataset_ax_modelado.csv`.
+- **[REQUIERE VALIDACIÓN CON EL NEGOCIO]** Confirmar que el solapamiento de fechas de stockout con las fechas transaccionales sea la definición operacional esperada.
+
+### Estado
+
+COMPLETADO CON OBSERVACIONES
